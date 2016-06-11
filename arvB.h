@@ -20,7 +20,12 @@ void print_node(BNode * bnode);
 void print_tree(const char *, int);
 void view_tree(const char * , const char *);
 
-int search(const char *, int, int);
+//Busca o BNode que contem ou conteria o ID buscado
+//argumentos -> arvb_filename, id, bnode_offset
+int search_node(const char *, int, int)
+//Busca dentro de um Bnode o elemento
+//argumentos -> bnode, id
+BNodeElement * search_element(BNode *, int);
 
 void ordered_insert(BNode *, BNodeElement *);
 void remove_element(BNode *, BNodeElement *);

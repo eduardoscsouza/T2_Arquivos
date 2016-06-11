@@ -156,20 +156,7 @@ void view_tree(const char * header_filename, const char * arvb_filename)
 }
 
 
-//Busca na arvore
-int search(const char * arvb_filename, int bnode_offset, int key)
-{
-    int i, key_offset = -1;
-    BNode * bnode = read_from_file(arvb_filename, bnode_offset);
-    for(i = 0; i < bnode->ocup && key_offset == -1; i++){
-        if(bnode->elements[i].id > key) key_offset = search(arvb_filename, bnode->children_offset[i], key);  
-        else if(bnode->elements[i].id == key) key_offset = bnode->elements[i].datafile_offset;  
-    }
-    if(key_offset == -1) key_offset = search(arvb_filename, bnode->children_offset[i], key);  
-    free(bnode);
-
-    return key_offset;
-}
+//
 
 
 //Insecao em no que possui espaco livre
