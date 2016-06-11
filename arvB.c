@@ -54,7 +54,7 @@ BNodeElement * new_bnode_element(int id, int datafile_offset)
 void write_header(const char * header_filename, int root_offset)
 {
 	FILE * header_file = fopen(header_filename, "w+");
-	fwrite(&root_offset, sizeof(root_offset), 1, header_file);
+	if (fwrite(&root_offset, sizeof(root_offset), 1, header_file)!=1) printf("HEADER WRITTING ERROR!\n");
 	fclose(header_file);
 }
 
@@ -68,7 +68,7 @@ int read_header(const char * header_filename)
 		write_header(header_filename, root_offset);
 	}
 	else {
-		fread(&root_offset, sizeof(root_offset), 1, header_file);
+		if (fread(&root_offset, sizeof(root_offset), 1, header_file)!=1) printf("HEADER READING ERROR!\n");
 		fclose(header_file);
 	}
 
@@ -91,13 +91,16 @@ int get_file_size(const char * filename)
 //Funcao para inserir no arquivo .idx
 void insert_on_file(const char * arvb_filename, BNode * bnode, int offset)
 {
-	FILE * tree_file = fopen(arvb_filename, "w+");
-	fseek(tree_file, offset, SEEK_SET);
-	fwrite(bnode, SIZEOF_PAGE, 1, tree_file);
-	fclose(tree_file);
+	FILE * tree_file = fopen(arvb_filename, "r+");
+	if (tree_file!=NULL){
+		fseek(tree_file, offset, SEEK_SET);
+		if (fwrite(bnode, SIZEOF_PAGE, 1, tree_file)!=1) printf("BNODE WRITTING ERROR!\n");
+		fclose(tree_file);
+	}
+	else printf("OPENING ERROR!\n");
 }
 
-//Funcao para inserir no arquivo .idx
+//Funcao para ler no arquivo .idx
 BNode * read_from_file(const char * arvb_filename, int offset)
 {
 	BNode * bnode = (BNode*) malloc(SIZEOF_PAGE);
@@ -106,10 +109,10 @@ BNode * read_from_file(const char * arvb_filename, int offset)
 	FILE * tree_file = fopen(arvb_filename, "r+");
 	if (tree_file!=NULL){
 		fseek(tree_file, offset, SEEK_SET);
-		fread(bnode, SIZEOF_PAGE, 1, tree_file);
+		if (fread(bnode, SIZEOF_PAGE, 1, tree_file)!=1) printf("BNODE READING ERROR!\nOFFSET->%d\nFILE SIZE->%d\n%s\n", offset, get_file_size(arvb_filename), arvb_filename);
 		fclose(tree_file);
 	}
-	else printf("READING ERROR\n");
+	else printf("OPENING ERROR!\n");
 
 	return bnode;
 }
@@ -156,7 +159,41 @@ void view_tree(const char * header_filename, const char * arvb_filename)
 }
 
 
-//
+//Busca o no que contem ou conteria o ID buscado
+int search_node(const char * arvb_filename, int bnode_offset, int key)
+{
+    BNode * bnode = read_from_file(arvb_filename, bnode_offset);
+
+    int i, offset = -1;
+    for(i=0; i<bnode->ocup && offset==-1; i++){
+        if(bnode->elements[i].id > key && bnode->children_offset[i]) offset = search_node(arvb_filename, bnode->children_offset[i], key);  
+        else if(bnode->elements[i].id == key) offset = bnode->itself_offset;  
+    }
+    if(offset == -1 && bnode->children_offset[i]!=-1) offset = search_node(arvb_filename, bnode->children_offset[i], key);
+
+    free(bnode);
+    if (offset==-1) return bnode_offset;
+    else return offset;
+}
+
+//Busca dentro de um no o elemento e retorna alocado na RAM
+BNodeElement * search_element(const char * arvb_filename, int bnode_offset, int key)
+{
+    BNode * bnode = read_from_file(arvb_filename, bnode_offset);
+    BNodeElement * bnode_element = NULL;
+
+    int i, found;
+    for(i=0, found=0; i<bnode->ocup && !found; i++){
+        if(bnode->elements[i].id == key){
+        	bnode_element = (BNodeElement *) malloc(sizeof(BNodeElement));
+            memcpy(bnode_element, bnode->elements + i, sizeof(BNodeElement));
+            found = 1;
+        }
+    }
+
+    free(bnode);
+    return bnode_element;
+}
 
 
 //Insecao em no que possui espaco livre
@@ -201,22 +238,21 @@ void bnode_insert_element(const char * header_filename, const char * arvb_filena
 			BNode * new_root = new_bnode(get_file_size(arvb_filename), -1);
 			BNode * new_brother = new_bnode(get_file_size(arvb_filename) + SIZEOF_PAGE, new_root->itself_offset);
 
-			//Insercao dos elementos nos novos nos
-			ordered_insert(new_root, elements + N_ELEMENTS-1);
-			ordered_insert(new_brother, elements + N_ELEMENTS);
-
 			//Definicao dos filhos dos novos nos
 			new_root->children_offset[0] = bnode->itself_offset;
 			new_root->children_offset[1] = new_brother->itself_offset;
 			new_brother->children_offset[0] = bnode->children_offset[ORDER - 2];
 			new_brother->children_offset[1] = bnode->children_offset[ORDER - 1];
+
+			//Insercao dos elementos nos novos nos
+			ordered_insert(new_root, elements + N_ELEMENTS - 1);
+			ordered_insert(new_brother, elements + N_ELEMENTS);
+			remove_element(bnode, elements + N_ELEMENTS - 1);
 			
 			//Mudar o pai de bnode children_offset
 
-			//Correcao do atual
-			bnode->ocup = N_ELEMENTS - 1;
-			memcpy(bnode->elements, elements, sizeof(BNodeElement) * (N_ELEMENTS - 1));
-			memset(bnode->children_offset + ORDER - 1, -1, sizeof(int) * 2);
+			//Correcao dos filhos do atual atual
+			memset(bnode->children_offset + (ORDER - 2), -1, sizeof(int) * 2);
 
 			//Correcao do pai e da raiz
 			bnode->father_offset = new_root->itself_offset;
@@ -225,6 +261,7 @@ void bnode_insert_element(const char * header_filename, const char * arvb_filena
 			//Insercao no arquivo
 			insert_on_file(arvb_filename, new_root, new_root->itself_offset);
 			insert_on_file(arvb_filename, new_brother, new_brother->itself_offset);
+			insert_on_file(arvb_filename, bnode, bnode->itself_offset);
 
 			//Liberacao da RAM
 			free(new_root);
@@ -248,13 +285,18 @@ void tree_insert_element(const char * header_filename, const char * arvb_filenam
 	if (root_offset==-1){
 		BNode * new_root = new_bnode(0, -1);
 		write_header(header_filename, new_root->itself_offset);
+
+		FILE * tree_file = fopen(arvb_filename, "w+");
 		insert_on_file(arvb_filename, new_root, new_root->itself_offset);
+		fclose(tree_file);
+		
 		bnode_insert_element(header_filename, arvb_filename, new_root, ins_elem);
 		free(new_root);
 	}
 	else {
-		se
-		bnode_insert_element(header_filename, arvb_filename);
+		BNode * bnode = read_from_file(arvb_filename, 0);
+		bnode_insert_element(header_filename, arvb_filename, bnode, ins_elem);
+		free(bnode);
 	}
 }
 
@@ -262,11 +304,13 @@ void tree_insert_element(const char * header_filename, const char * arvb_filenam
 int main(int argv, char * argc[])
 {
 	int i;
-	for(i=0; i<3; i++){
+	for(i=0; i<4; i++){
 		BNodeElement * b = new_bnode_element(i, 0);
 		tree_insert_element("header.hea", "idx.avb", b);
 		free(b);
 	}
+	printf("%d\n", read_header("header.hea"));
+	printf("%d\n", search_node("idx.avb", read_header("header.hea"), 3));
 
 	view_tree("header.hea", "idx.avb");
 	return 0;

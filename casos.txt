@@ -1,0 +1,6 @@
+-vazia
+-raiz-folha
+-folha normal
+-overflow raiz-folha
+-overflow raiz
+-overflow nó normal
