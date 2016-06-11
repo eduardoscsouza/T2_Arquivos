@@ -101,17 +101,22 @@ void insert_on_file(const char * arvb_filename, BNode * bnode, int offset)
 BNode * read_from_file(const char * arvb_filename, int offset)
 {
 	BNode * bnode = (BNode*) malloc(SIZEOF_PAGE);
+	memset(bnode, -1, SIZEOF_PAGE);
+
 	FILE * tree_file = fopen(arvb_filename, "r+");
-	fseek(tree_file, offset, SEEK_SET);
-	fread(bnode, SIZEOF_PAGE, 1, tree_file);
-	fclose(tree_file);
+	if (tree_file!=NULL){
+		fseek(tree_file, offset, SEEK_SET);
+		fread(bnode, SIZEOF_PAGE, 1, tree_file);
+		fclose(tree_file);
+	}
+	else printf("READING ERROR\n");
 
 	return bnode;
 }
 
 
 //Impressao dos elementos de apenas 1 no
-void print_node(Bnode * bnode)
+void print_node(BNode * bnode)
 {
     printf("[");
 
@@ -127,7 +132,7 @@ void print_node(Bnode * bnode)
 //Impressao da arvore inteira recursivamente
 void print_tree(const char * arvb_filename, int offset)
 {
-    Bnode * bnode = read_from_file(arvb_filename, offset);
+    BNode * bnode = read_from_file(arvb_filename, offset);
     print_node(bnode);
     
     int i;
@@ -141,11 +146,11 @@ void print_tree(const char * arvb_filename, int offset)
 }
 
 //Funcao base da chamada da impressao
-void view_tree(const char * arvb_filename, const char * header_filename)
+void view_tree(const char * header_filename, const char * arvb_filename)
 {
     int root_offset = read_header(header_filename);
     if (root_offset!=-1){
-	    print_tree(arvb_filename, rootOffset);
+	    print_tree(arvb_filename, root_offset);
 	    printf("\n");
 	}
 }
@@ -155,7 +160,7 @@ void view_tree(const char * arvb_filename, const char * header_filename)
 int search(const char * arvb_filename, int bnode_offset, int key)
 {
     int i, key_offset = -1;
-    Bnode * bnode = read_from_file(arvb_filename, bnode_offset);
+    BNode * bnode = read_from_file(arvb_filename, bnode_offset);
     for(i = 0; i < bnode->ocup && key_offset == -1; i++){
         if(bnode->elements[i].id > key) key_offset = search(arvb_filename, bnode->children_offset[i], key);  
         else if(bnode->elements[i].id == key) key_offset = bnode->elements[i].datafile_offset;  
@@ -171,7 +176,7 @@ int search(const char * arvb_filename, int bnode_offset, int key)
 void ordered_insert(BNode * bnode, BNodeElement * ins_elem)
 {
 	int i, j;
-	for (i=0; i<bnode->ocup && ins_elem->id > bnode->elements[i].id; i++);
+	for (i=0; (i<bnode->ocup) && (ins_elem->id > bnode->elements[i].id); i++);
 	for (j=N_ELEMENTS-1; j>i; j--) bnode->elements[j] = bnode->elements[j-1];
 
 	bnode->elements[i] = (*ins_elem);
@@ -181,8 +186,8 @@ void ordered_insert(BNode * bnode, BNodeElement * ins_elem)
 //Remocao do no
 void remove_element(BNode * bnode, BNodeElement * rem_elem)
 {
-	int i;
-	for (i=0; i<bnode->ocup bnode->elements[i].id != rem_elem->id; i++);
+	int i, j;
+	for (i=0; i<bnode->ocup && (bnode->elements[i].id != rem_elem->id); i++);
 
 	if (i!=bnode->ocup){
 		for (j=i; j < bnode->ocup-1; j++) bnode->elements[j] = bnode->elements[j+1];
@@ -255,26 +260,27 @@ void tree_insert_element(const char * header_filename, const char * arvb_filenam
 	int root_offset = read_header(header_filename);
 	if (root_offset==-1){
 		BNode * new_root = new_bnode(0, -1);
+		write_header(header_filename, new_root->itself_offset);
+		insert_on_file(arvb_filename, new_root, new_root->itself_offset);
 		bnode_insert_element(header_filename, arvb_filename, new_root, ins_elem);
-
-		FILE * header_file = fopen(header_filename, "w");
-		fwrite(&(new_root->itself_offset), sizeof(new_root->itself_offset), 1, header_file);
-		fclose(header_file);
-
 		free(new_root);
 	}
-	else{
-
+	else {
+		se
+		bnode_insert_element(header_filename, arvb_filename);
 	}
 }
 
 
 int main(int argv, char * argc[])
 {
-	
-	BNodeElement * ins_elem = new_bnode_element(0, 0);
-	tree_insert_element("header.hea", "idx.avb", ins_elem);
-	free(ins_elem);
+	int i;
+	for(i=0; i<3; i++){
+		BNodeElement * b = new_bnode_element(i, 0);
+		tree_insert_element("header.hea", "idx.avb", b);
+		free(b);
+	}
 
+	view_tree("header.hea", "idx.avb");
 	return 0;
 }

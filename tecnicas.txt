@@ -1,0 +1,5 @@
+remove da raiz ->checar se e o quarto ou quinto do vetor ordenado q esta no pai
+adiciona na raiz
+concerta o de baixo
+
+Fzer que nem o william, so que em base numerica M na hora de adcionar com o sṕlit e precisar shiftar os nos para direita

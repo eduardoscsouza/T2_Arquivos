@@ -16,7 +16,7 @@ int get_file_size(const char *);
 void insert_on_file(const char *, BNode *, int);
 BNode * read_from_file(const char *, int);
 
-void print_node(Bnode * bnode);
+void print_node(BNode * bnode);
 void print_tree(const char *, int);
 void view_tree(const char * , const char *);
 
