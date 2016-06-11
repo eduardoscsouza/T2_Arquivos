@@ -4,16 +4,19 @@
 #Piero Lima Capelo                    9293115
 
 all:
-	gcc arvB.c -O3 -Wno-unused-result -o arvB.out
+	gcc manage_file.c arvB.c -O3 -Wno-unused-result -o arvB.out
 
 run:
 	./arvB.out
 
 test:
-	gcc arvB.c -O3 -Wall -Wextra -Wno-unused-result -o arvB.out -lm -g
+	gcc manage_file.c arvB.c -O3 -Wall -Wextra -Wno-unused-result -o arvB.out -lm -g
 	valgrind --leak-check=full --track-origins=yes ./arvB.out
 	rm *.out *.hea *.avb
 	zip T2 *.c *.h Makefile
+
+clean:
+	rm *.out *.hea *.avb
 
 git:
 	cp *.c Git/

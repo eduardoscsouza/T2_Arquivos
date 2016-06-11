@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "arvB.h"
+#include "manage_file.h"
 
 #define ORDER 4
 #define N_ELEMENTS 3
@@ -166,7 +167,7 @@ int search_node(const char * arvb_filename, int bnode_offset, int key)
 
     int i, offset = -1;
     for(i=0; i<bnode->ocup && offset==-1; i++){
-        if(bnode->elements[i].id > key && bnode->children_offset[i]) offset = search_node(arvb_filename, bnode->children_offset[i], key);  
+        if(bnode->elements[i].id > key && bnode->children_offset[i]!=-1) offset = search_node(arvb_filename, bnode->children_offset[i], key);  
         else if(bnode->elements[i].id == key) offset = bnode->itself_offset;  
     }
     if(offset == -1 && bnode->children_offset[i]!=-1) offset = search_node(arvb_filename, bnode->children_offset[i], key);
@@ -223,8 +224,8 @@ void remove_element(BNode * bnode, BNodeElement * rem_elem)
 //Funcao que faz a insercao no nó em disco e faz as correcoes
 void bnode_insert_element(const char * header_filename, const char * arvb_filename, BNode * bnode, BNodeElement * ins_elem)
 {
-	if (bnode->father_offset==-1){	//insercao na raiz
-		if (bnode->ocup==N_ELEMENTS){	//raiz cheia
+	if (bnode->ocup==N_ELEMENTS) { //no cheio
+		if (bnode->father_offset==-1){ //raiz cheia 
 			//Criacao do vetor ordenado com N_ELEments + 1 elemento
 			//(Pagina antiga + elemento a ser inserido)
 			BNodeElement elements [N_ELEMENTS + 1];
@@ -267,14 +268,13 @@ void bnode_insert_element(const char * header_filename, const char * arvb_filena
 			free(new_root);
 			free(new_brother);
 		}
-		else {	//raiz nao cheia
-			ordered_insert(bnode, ins_elem);
-			insert_on_file(arvb_filename, bnode, bnode->itself_offset);
+		else { //no nao-raiz cheio
+
 		}
-
 	}
-	else{	//insercao fora da raiz
-
+	else { //no com espaco
+		ordered_insert(bnode, ins_elem);
+		insert_on_file(arvb_filename, bnode, bnode->itself_offset);
 	}
 }
 
@@ -289,28 +289,34 @@ void tree_insert_element(const char * header_filename, const char * arvb_filenam
 		FILE * tree_file = fopen(arvb_filename, "w+");
 		insert_on_file(arvb_filename, new_root, new_root->itself_offset);
 		fclose(tree_file);
-		
+
 		bnode_insert_element(header_filename, arvb_filename, new_root, ins_elem);
 		free(new_root);
 	}
 	else {
-		BNode * bnode = read_from_file(arvb_filename, 0);
+		BNode * bnode = read_from_file(arvb_filename, search_node(arvb_filename, read_header(header_filename), ins_elem->id));
 		bnode_insert_element(header_filename, arvb_filename, bnode, ins_elem);
 		free(bnode);
 	}
 }
 
 
+#define SIZE 7
+
+
 int main(int argv, char * argc[])
 {
 	int i;
-	for(i=0; i<4; i++){
-		BNodeElement * b = new_bnode_element(i, 0);
+	int * vect = shuffle(SIZE, time(NULL));
+	for(i=0; i<SIZE; i++) printf("%d ", vect[i]);
+	printf("\n");
+
+	for(i=0; i<SIZE; i++){
+		BNodeElement * b = new_bnode_element(vect[i], 0);
 		tree_insert_element("header.hea", "idx.avb", b);
 		free(b);
 	}
-	printf("%d\n", read_header("header.hea"));
-	printf("%d\n", search_node("idx.avb", read_header("header.hea"), 3));
+	free(vect);
 
 	view_tree("header.hea", "idx.avb");
 	return 0;

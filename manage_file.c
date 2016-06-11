@@ -293,7 +293,7 @@ void print_registry(fields * registry)
 }
 
 
-
+/*
 #define N_REG 100
 
 int main()
@@ -375,4 +375,4 @@ int main()
     }while(opcao != 3);
     
     return 0;
-}
+}*/
