@@ -221,6 +221,86 @@ void remove_element(BNode * bnode, BNodeElement * rem_elem)
 }
 
 
+//Funcao que retorna qual a posicao relativa do no entre os ponteiros do pai
+int which_child(const char * arvb_filename, BNode * bnode)
+{
+    int i;
+    int relative_idx = -1;
+    BNode * parent = read_from_file(arvb_filename, bnode->father_offset);
+    for(i=0; i<(parent->ocup+1) && relative_idx==-1; i++)
+    	if(bnode->itself_offset == parent->children_offset[i]) relative_idx = i;
+    
+    free(parent);
+    return relative_idx;
+}
+
+//Funcao que retorna qual irmao para se fazer redistribuicao, e -1 se nao houver
+int possible_redistribution(const char * arvb_filename, Bnode * bnode)
+{
+	BNode * brother;
+	int relative_idx = which_child(arvb_filename, bnode), ocup = 0;
+	if (relative_idx < N_ELEMENTS){
+		brother = read_from_file(bnode->father_offset->children_offset[relative_idx+1]);
+		ocup = brother->ocup;
+		free(brother);
+		if (ocup!=N_ELEMENTS) return (relative_idx + 1);
+	}
+
+	if (relative_idx > 0){
+		brother = read_from_file(bnode->father_offset->children_offset[relative_idx-1]);
+		ocup = brother->ocup;
+		free(brother);
+		if (ocup!=N_ELEMENTS) return (relative_idx - 1);
+	}
+
+	return -1;
+}
+
+
+void redistribution(const char * arvb_filename, int father_offset, int origin_relative_child, int destiny_relative_child, BNodeElement * ins_elem)
+{
+    BNode * father = read_from_file(arvb_filename, father_offset);
+    BNode * origin = read_from_file(arvb_filename, father->children_offset[origin_relative_child]), destiny = read_from_file(arvb_filename, father->children_offset[destiny_relative_child]);
+    BNodeElement *father_element = (BNodeElement*) malloc(sizeof(BNodeElement)), *origin_element = (BNodeElement*) malloc(sizeof(BNodeElement)), *destiny_element = (BNodeElement*) malloc(sizeof(BNodeElement));
+
+    if(origin_relative_child < destiny_relative_child){ //destino > origem ----> esquerda para a direita
+
+        //Setando elementos principais necessarios
+        memcpy(father_element, father->elements + which_child(arvb_filename, origin), sizeof(BNodeElement));
+        memcpy(origin_element, origin->elements + N_ELEMENTS-1, sizeof(BNodeElement));
+
+
+    }
+    else{ //origem > destino -----> direita para a esquerda
+
+        //Setando elementos principais necessarios
+        memcpy(father_element, father->elements + which_child(arvb_filename, destiny), sizeof(BNodeElement));
+        memcpy(destiny_element, destiny->elements, sizeof(BNodeElement));
+
+    }
+
+    ordered_insert(destiny, father_element);
+
+    remove_element(father, father_element);
+    ordered_insert(father, origin_element);
+
+    remove_element(origin, origin_element);
+    ordered_insert(origin, ins_elem);
+
+    insert_on_file(arvb_filename, father, father->itself_offset);
+    insert_on_file(arvb_filename, origin, origin->itself_offset);
+    insert_on_file(arvb_filename, destiny, destiny->itself_offset);
+
+    free(father);
+    free(origin);
+    free(destiny);
+    free(father_element);
+    free(origin_element);
+    free(destiny_element);
+    
+}
+
+
 //Funcao que faz a insercao no nó em disco e faz as correcoes
 void bnode_insert_element(const char * header_filename, const char * arvb_filename, BNode * bnode, BNodeElement * ins_elem)
 {
@@ -268,8 +348,11 @@ void bnode_insert_element(const char * header_filename, const char * arvb_filena
 			free(new_root);
 			free(new_brother);
 		}
-		else { //no nao-raiz cheio
-
+		else {
+			int brother = possible_redistribution(arvb_filename, bnode);
+			if (brother!=-1) {
+				//funcao_do_bernardo(arb_filename, bnode->father_offset, which_children(bnode), brother); 
+			//se nao, split 2-to-3
 		}
 	}
 	else { //no com espaco
