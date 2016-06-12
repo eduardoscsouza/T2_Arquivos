@@ -235,24 +235,28 @@ int which_child(const char * arvb_filename, BNode * bnode)
 }
 
 //Funcao que retorna qual irmao para se fazer redistribuicao, e -1 se nao houver
-int possible_redistribution(const char * arvb_filename, Bnode * bnode)
+int possible_redistribution(const char * arvb_filename, BNode * bnode)
 {
 	BNode * brother;
+	BNode * father = read_from_file(arvb_filename, bnode->father_offset);
 	int relative_idx = which_child(arvb_filename, bnode), ocup = 0;
-	if (relative_idx < N_ELEMENTS){
-		brother = read_from_file(bnode->father_offset->children_offset[relative_idx+1]);
+	if (relative_idx < father->ocup){
+		brother = read_from_file(arvb_filename, father->children_offset[relative_idx+1]);
 		ocup = brother->ocup;
 		free(brother);
+		free(father);
 		if (ocup!=N_ELEMENTS) return (relative_idx + 1);
 	}
 
 	if (relative_idx > 0){
-		brother = read_from_file(bnode->father_offset->children_offset[relative_idx-1]);
+		brother = read_from_file(arvb_filename, father->children_offset[relative_idx-1]);
 		ocup = brother->ocup;
 		free(brother);
+		free(father);
 		if (ocup!=N_ELEMENTS) return (relative_idx - 1);
 	}
 
+	free(father);
 	return -1;
 }
 
@@ -260,9 +264,9 @@ int possible_redistribution(const char * arvb_filename, Bnode * bnode)
 void redistribution(const char * arvb_filename, int father_offset, int origin_relative_child, int destiny_relative_child, BNodeElement * ins_elem)
 {
     BNode * father = read_from_file(arvb_filename, father_offset);
-    BNode * origin = read_from_file(arvb_filename, father->children_offset[origin_relative_child])
+    BNode * origin = read_from_file(arvb_filename, father->children_offset[origin_relative_child]);
     BNode * destiny = read_from_file(arvb_filename, father->children_offset[destiny_relative_child]);
-    BNodeElement * father_element = (BNodeElement*) malloc(sizeof(BNodeElement))
+    BNodeElement * father_element = (BNodeElement*) malloc(sizeof(BNodeElement));
     BNodeElement * origin_element = (BNodeElement*) malloc(sizeof(BNodeElement));
 
     if(origin_relative_child < destiny_relative_child){ //destino > origem ----> esquerda para a direita
@@ -340,9 +344,9 @@ void bnode_insert_element(const char * header_filename, const char * arvb_filena
 			free(new_brother);
 		}
 		else {
-			//int brother = possible_redistribution(arvb_filename, bnode);
-			//if (brother!=-1) {
-				//funcao_do_bernardo(arb_filename, bnode->father_offset, which_children(bnode), brother); 
+			int brother = possible_redistribution(arvb_filename, bnode);
+			printf("%d\n", brother);
+			if (brother!=-1) redistribution(arvb_filename, bnode->father_offset, which_child(arvb_filename, bnode), brother, ins_elem); 
 			//se nao, split 2-to-3
 		}
 	}
@@ -375,7 +379,7 @@ void tree_insert_element(const char * header_filename, const char * arvb_filenam
 }
 
 
-#define SIZE 7
+#define SIZE 8
 
 
 int main(int argv, char * argc[])
@@ -386,7 +390,7 @@ int main(int argv, char * argc[])
 	printf("\n");
 
 	for(i=0; i<SIZE; i++){
-		BNodeElement * b = new_bnode_element(vect[i], 0);
+		BNodeElement * b = new_bnode_element(i, 0);
 		tree_insert_element("header.hea", "idx.avb", b);
 		free(b);
 	}
