@@ -26,7 +26,7 @@ BNodeElement * search_element(const char *, int, int);
 void ordered_insert(BNode *, BNodeElement *);
 void remove_element(BNode *, BNodeElement *);
 
-void bnode_insert_element(const char *, const char *, BNode *, BNodeElement *);
+void bnode_insert_element(const char *, const char *, BNode *, BNodeElement *, int);
 void tree_insert_element(const char *, const char *, BNodeElement *);
 
 

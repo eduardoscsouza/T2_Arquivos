@@ -296,8 +296,20 @@ void redistribution(const char * arvb_filename, int father_offset, int origin_re
 }
 
 
+void fix_children(const char * arvb_filename, BNode * bnode)
+{
+	int i;
+	for (i=0; i<=bnode->ocup; i++){
+		BNode * child = read_from_file(arvb_filename, bnode->children_offset[i]);
+		child->father_offset = bnode->itself_offset;
+		insert_on_file(arvb_filename, child, child->itself_offset);
+		free(child);
+	}
+}
+
+
 //Funcao que faz a insercao no nó em disco e faz as correcoes
-void bnode_insert_element(const char * header_filename, const char * arvb_filename, BNode * bnode, BNodeElement * ins_elem)
+void bnode_insert_element(const char * header_filename, const char * arvb_filename, BNode * bnode, BNodeElement * ins_elem, int lost_offset)
 {
 	if (bnode->ocup==N_ELEMENTS) { //no cheio
 		if (bnode->father_offset==-1){ //raiz cheia 
@@ -318,7 +330,7 @@ void bnode_insert_element(const char * header_filename, const char * arvb_filena
 			new_root->children_offset[0] = bnode->itself_offset;
 			new_root->children_offset[1] = new_brother->itself_offset;
 			new_brother->children_offset[0] = bnode->children_offset[ORDER - 2];
-			new_brother->children_offset[1] = bnode->children_offset[ORDER - 1];
+			new_brother->children_offset[1] = lost_offset;
 
 			//Insercao dos elementos nos novos nos
 			ordered_insert(new_root, elements + N_ELEMENTS - 1);
@@ -326,6 +338,14 @@ void bnode_insert_element(const char * header_filename, const char * arvb_filena
 			remove_element(bnode, elements + N_ELEMENTS - 1);
 			
 			//Mudar o pai de bnode children_offset
+			BNode * first_nephew = read_from_file(arvb_filename, new_brother->children_offset[0]);
+			BNode * second_nephew = read_from_file(arvb_filename, new_brother->children_offset[1]);
+			first_nephew->father_offset = new_brother->itself_offset;
+			second_nephew->father_offset = new_brother->itself_offset;
+			insert_on_file(arvb_filename, first_nephew, first_nephew->itself_offset);
+			insert_on_file(arvb_filename, second_nephew, second_nephew->itself_offset);
+			free(first_nephew);
+			free(second_nephew);
 
 			//Correcao dos filhos do atual atual
 			memset(bnode->children_offset + (ORDER - 2), -1, sizeof(int) * 2);
@@ -345,9 +365,81 @@ void bnode_insert_element(const char * header_filename, const char * arvb_filena
 		}
 		else {
 			int brother = possible_redistribution(arvb_filename, bnode);
-			printf("%d\n", brother);
 			if (brother!=-1) redistribution(arvb_filename, bnode->father_offset, which_child(arvb_filename, bnode), brother, ins_elem); 
-			//se nao, split 2-to-3
+			else{
+				BNode * father = read_from_file(arvb_filename, bnode->father_offset);
+				//Checar para ser sempre da esquerda para direita
+				BNode * brother;
+				if (which_child(arvb_filename, bnode)>=father->ocup-1){
+					brother = bnode;
+					bnode = read_from_file(arvb_filename, father->children_offset[which_child(arvb_filename, bnode) + 1]);
+				}
+				else brother = read_from_file(arvb_filename, father->children_offset[which_child(arvb_filename, bnode) + 1]);
+
+				//Cricao do vetorzao
+				BNodeElement elements [(2*N_ELEMENTS) + 2];
+				memcpy(elements, bnode->elements, sizeof(BNodeElement) * N_ELEMENTS);
+				memcpy(elements + N_ELEMENTS, father->elements + which_child(arvb_filename,  bnode), sizeof(BNodeElement));
+				memcpy(elements + N_ELEMENTS + 1, brother->elements, sizeof(BNodeElement) * N_ELEMENTS);
+				int i, j;
+				for (i=0; i<((2*N_ELEMENTS)+1) && ins_elem->id > elements[i].id; i++);
+				for (j=(2*N_ELEMENTS); j>i; j--) elements[j] = elements[j-1];
+				elements[i] = (*ins_elem);
+
+				//Criacao do irmao
+				BNode * new_brother = new_bnode(get_file_size(arvb_filename) + SIZEOF_PAGE, bnode->father_offset);
+				insert_on_file(arvb_filename, new_brother, new_brother->itself_offset);
+
+				//Setar os valores corretos do vetorzao nso nos
+				memset(bnode->elements, -1, sizeof(BNodeElement) * N_ELEMENTS);
+				memset(new_brother->elements, -1, sizeof(BNodeElement) * N_ELEMENTS);
+				memset(brother->elements, -1, sizeof(BNodeElement) * N_ELEMENTS);
+
+				memcpy(bnode->elements, elements, sizeof(BNodeElement) * 2);
+				bnode->ocup = 2;
+				memcpy(new_brother->elements, elements + 3, sizeof(BNodeElement) * 2);
+				new_brother->ocup = 2;
+				memcpy(brother->elements, elements + 6, sizeof(BNodeElement) * 2);
+				brother->ocup = 2;
+
+				///Shiftar os irmaos para direita
+				int lost = father->children_offset[ORDER-1];
+				for (i=ORDER-2; i>=which_child(arvb_filename, bnode); i--) father->children_offset[i+1] = father->children_offset[i];
+				//insercao do novo irmao
+				father->children_offset[which_child(arvb_filename, bnode)+1] = new_brother->itself_offset;
+
+				//Criacao do vetorzao de ponteiros
+				int ponteiros [(ORDER * 2) + 1];
+				memcpy(ponteiros, bnode->children_offset, sizeof(int) * ORDER);
+				ponteiros[ORDER] = lost_offset;
+				memcpy(ponteiros + ORDER + 1, brother->children_offset, sizeof(int) * ORDER);
+				
+				//Setar os ponteiros certos
+				memset(bnode->children_offset, -1, sizeof(int) * ORDER);
+				memset(new_brother->children_offset, -1, sizeof(int) * ORDER);
+				memset(brother->children_offset, -1, sizeof(int) * ORDER);
+
+				memcpy(bnode->children_offset, ponteiros, sizeof(int) * ORDER - 1);
+				memcpy(new_brother->children_offset, ponteiros + (ORDER-1), sizeof(int) * ORDER - 1);
+				memcpy(brother->children_offset, ponteiros + (2*(ORDER-1)), sizeof(int) * ORDER - 1);
+
+				//Escrever de volta no arquivo
+				insert_on_file(arvb_filename, new_brother, new_brother->itself_offset);
+				insert_on_file(arvb_filename, bnode, bnode->itself_offset);
+				insert_on_file(arvb_filename, brother, brother->itself_offset);
+
+				fix_children(arvb_filename, bnode);
+				fix_children(arvb_filename, new_brother);
+				fix_children(arvb_filename, brother);
+
+				free(brother);
+				free(new_brother);
+
+				remove_element(father, father->elements + which_child(arvb_filename, bnode));
+				ordered_insert(father, elements + (N_ELEMENTS-1));
+				bnode_insert_element(header_filename, arvb_filename, father, elements + ((2*N_ELEMENTS)-1), lost);
+				free(father);
+			}	
 		}
 	}
 	else { //no com espaco
@@ -368,12 +460,12 @@ void tree_insert_element(const char * header_filename, const char * arvb_filenam
 		insert_on_file(arvb_filename, new_root, new_root->itself_offset);
 		fclose(tree_file);
 
-		bnode_insert_element(header_filename, arvb_filename, new_root, ins_elem);
+		bnode_insert_element(header_filename, arvb_filename, new_root, ins_elem, -1);
 		free(new_root);
 	}
 	else {
 		BNode * bnode = read_from_file(arvb_filename, search_node(arvb_filename, read_header(header_filename), ins_elem->id));
-		bnode_insert_element(header_filename, arvb_filename, bnode, ins_elem);
+		bnode_insert_element(header_filename, arvb_filename, bnode, ins_elem, -1);
 		free(bnode);
 	}
 }
@@ -386,8 +478,8 @@ int main(int argv, char * argc[])
 {
 	int i;
 	int * vect = shuffle(SIZE, time(NULL));
-	for(i=0; i<SIZE; i++) printf("%d ", vect[i]);
-	printf("\n");
+	//for(i=0; i<SIZE; i++) printf("%d ", vect[i]);
+	//printf("\n");
 
 	for(i=0; i<SIZE; i++){
 		BNodeElement * b = new_bnode_element(i, 0);
