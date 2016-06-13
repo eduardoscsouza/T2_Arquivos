@@ -35,7 +35,7 @@ size_t * getTextsOffsets(FILE *, size_t);
 void write_bin_file(const char *, const char *, size_t);
 
 //Faz a busca sequencial dentro do arquivo binario pelo ID especificado
-fields * sequencial_search(FILE *, int);
+fields * sequencial_search(FILE *, size_t);
 
 //Imprime todos os IDs e os titulos
 void print_all_ids(FILE *, size_t);

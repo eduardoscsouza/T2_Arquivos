@@ -26,6 +26,14 @@ BNodeElement * search_element(const char *, int, int);
 void ordered_insert(BNode *, BNodeElement *);
 void remove_element(BNode *, BNodeElement *);
 
+int which_child(const char *, BNode *);
+int possible_redistribution(const char *, BNode *);
+void redistribution(const char *, int, int, int, BNodeElement *);
+
+void fix_children(const char *, BNode *);
+void split_1_to_2(const char *, const char *, BNode *, BNodeElement *, int);
+void split_2_to_3(const char *, const char *, BNode *, BNodeElement *, int);
+
 void bnode_insert_element(const char *, const char *, BNode *, BNodeElement *, int);
 void tree_insert_element(const char *, const char *, BNodeElement *);
 

@@ -199,7 +199,7 @@ size_t * getTextsOffsets(FILE * in_file, size_t n_registry)
     fseek(in_file, 0, SEEK_SET);
     size_t * offsets = (size_t *) malloc(sizeof(size_t) * n_registry);
 
-    int i = 0;
+    size_t i = 0;
     while(!feof(in_file) && i<n_registry){
         offsets[i] = ftell(in_file);
         //le a proxima serie e reposiciona a posicao atual do arquivo no inicio da proxima serie
@@ -225,7 +225,7 @@ void write_bin_file(const char * in_file_name, const char * out_file_name, size_
     unsigned int * ids = shuffle(reg_count, clock());
     unsigned int * pos = shuffle(reg_count, clock());
     
-    int i;
+    size_t i;
     for (i=0; i<reg_count; i++) {
         //le um registro de uma posicao aleatoria do arquivo de texto
         fields * registry = fread_text(in_file, offsets[pos[i]]);
@@ -251,7 +251,7 @@ void write_bin_file(const char * in_file_name, const char * out_file_name, size_
 
 
 //Faz a busca sequencial dentro do arquivo binario pelo ID especificado
-fields * sequencial_search(FILE * in_file, int id)
+fields * sequencial_search(FILE * in_file, size_t id)
 {
     fseek(in_file, 0, SEEK_SET);
 
@@ -271,7 +271,7 @@ fields * sequencial_search(FILE * in_file, int id)
 //Imprime todos os IDs e os titulos
 void print_all_ids(FILE * in_file, size_t id_count)
 {
-    int i;
+    size_t i;
     for (i=0; i<id_count; i++){
         fields * registry = sequencial_search(in_file, i);
         printf("%d: %s\n", registry->id, registry->title);
