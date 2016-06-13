@@ -243,6 +243,7 @@ int possible_redistribution(const char * arvb_filename, BNode * bnode)
 	BNode * brother;
 	BNode * father = read_from_file(arvb_filename, bnode->father_offset);
 	int relative_idx = which_child(arvb_filename, bnode), ocup = 0, ans = -1;
+	printf("reltive_idx = %d\n", relative_idx);
 
 	if (relative_idx > 0){
 		brother = read_from_file(arvb_filename, father->children_offset[relative_idx-1]);
@@ -428,7 +429,7 @@ void split_2_to_3(const char * header_filename, const char * arvb_filename, BNod
 	//Escrever de volta no arquivo
 	insert_on_file(arvb_filename, new_brother, new_brother->itself_offset);
 	insert_on_file(arvb_filename, bnode, bnode->itself_offset);
-	insert_on_file(arvb_filename, brother, brother->itself_offset);
+	insert_on_file(arvb_filename, brother, brother->itself_offset); //esse cara ta dando pau
 
 	fix_children(arvb_filename, bnode);
 	fix_children(arvb_filename, new_brother);
@@ -458,6 +459,7 @@ void bnode_insert_element(const char * header_filename, const char * arvb_filena
 		if (bnode->father_offset==-1) split_1_to_2(header_filename, arvb_filename, bnode, ins_elem, lost_offset); //raiz cheia 
 		else {
 			int brother = possible_redistribution(arvb_filename, bnode);
+			printf("possible brother = %d\n", brother);
 			if (brother!=-1) redistribution(arvb_filename, bnode->father_offset, which_child(arvb_filename, bnode), brother, ins_elem); 
 			else split_2_to_3(header_filename, arvb_filename, bnode, ins_elem, lost_offset);
 		}
@@ -491,7 +493,7 @@ void tree_insert_element(const char * header_filename, const char * arvb_filenam
 }
 
 
-#define SIZE 9
+#define SIZE 10 
 
 
 int main(int argv, char * argc[])
