@@ -324,34 +324,31 @@ void split_1_to_2(const char * header_filename, const char * arvb_filename, BNod
 
 	//Criacao dos novos nos
 	BNode * new_root = new_bnode(get_file_size(arvb_filename), -1);
-	BNode * new_brother = new_bnode(get_file_size(arvb_filename) + SIZEOF_PAGE, new_root->itself_offset);
+	insert_on_file(arvb_filename, new_root, new_root->itself_offset);
+	BNode * new_brother = new_bnode(get_file_size(arvb_filename), new_root->itself_offset);
+	insert_on_file(arvb_filename, new_brother, new_brother->itself_offset);
 
 	//Definicao dos filhos dos novos nos
 	new_root->children_offset[0] = bnode->itself_offset;
 	new_root->children_offset[1] = new_brother->itself_offset;
-	new_brother->children_offset[0] = bnode->children_offset[ORDER - 2];
+	new_brother->children_offset[0] = bnode->children_offset[ORDER - 1];
 	new_brother->children_offset[1] = lost_offset;
+
+	//Correcao dos filhos do atual atual
+	bnode->children_offset[ORDER - 1] = -1;
 
 	//Insercao dos elementos nos novos nos
 	ordered_insert(new_root, elements + N_ELEMENTS - 1);
 	ordered_insert(new_brother, elements + N_ELEMENTS);
-	remove_element(bnode, elements + N_ELEMENTS - 1);
 	
-	//Mudar o pai de bnode children_offset
-	BNode * first_nephew = read_from_file(arvb_filename, new_brother->children_offset[0]);
-	BNode * second_nephew = read_from_file(arvb_filename, new_brother->children_offset[1]);
-	first_nephew->father_offset = new_brother->itself_offset;
-	second_nephew->father_offset = new_brother->itself_offset;
-	insert_on_file(arvb_filename, first_nephew, first_nephew->itself_offset);
-	insert_on_file(arvb_filename, second_nephew, second_nephew->itself_offset);
-	free(first_nephew);
-	free(second_nephew);
-
-	//Correcao dos filhos do atual atual
-	memset(bnode->children_offset + (ORDER - 2), -1, sizeof(int) * 2);
-
-	//Correcao do pai e da raiz
-	bnode->father_offset = new_root->itself_offset;
+	//Conserto no no atual
+	memcpy(bnode->elements, elements, sizeof(BNodeElement) * (N_ELEMENTS - 1));
+	bnode->ocup = (N_ELEMENTS - 1);
+	
+	fix_children(arvb_filename, new_root);
+	fix_children(arvb_filename, bnode);
+	fix_children(arvb_filename, new_brother);
+	
 	write_header(header_filename, new_root->itself_offset);
 
 	//Insercao no arquivo
@@ -422,8 +419,8 @@ void split_2_to_3(const char * header_filename, const char * arvb_filename, BNod
 	memset(brother->children_offset, -1, sizeof(int) * ORDER);
 
 	memcpy(bnode->children_offset, ponteiros, sizeof(int) * ORDER - 1);
-	memcpy(new_brother->children_offset, ponteiros + (ORDER-1), sizeof(int) * ORDER - 1);
-	memcpy(brother->children_offset, ponteiros + (2*(ORDER-1)), sizeof(int) * ORDER - 1);
+	memcpy(new_brother->children_offset, ponteiros + (ORDER-1), sizeof(int) * (ORDER - 1));
+	memcpy(brother->children_offset, ponteiros + (2*(ORDER-1)), sizeof(int) * (ORDER - 1));
 
 	//Escrever de volta no arquivo
 	insert_on_file(arvb_filename, new_brother, new_brother->itself_offset);
@@ -491,7 +488,7 @@ void tree_insert_element(const char * header_filename, const char * arvb_filenam
 }
 
 
-#define SIZE 9
+#define SIZE 14
 
 
 int main(int argv, char * argc[])
