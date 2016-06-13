@@ -345,10 +345,10 @@ void split_1_to_2(const char * header_filename, const char * arvb_filename, BNod
 	memcpy(bnode->elements, elements, sizeof(BNodeElement) * (N_ELEMENTS - 1));
 	bnode->ocup = (N_ELEMENTS - 1);
 	
-	fix_children(arvb_filename, new_root);
+	//Correcao do pai e da raiz
+	bnode->father_offset = new_root->itself_offset;
 	fix_children(arvb_filename, bnode);
 	fix_children(arvb_filename, new_brother);
-	
 	write_header(header_filename, new_root->itself_offset);
 
 	//Insercao no arquivo
@@ -488,7 +488,7 @@ void tree_insert_element(const char * header_filename, const char * arvb_filenam
 }
 
 
-#define SIZE 14
+#define SIZE 16
 
 
 int main(int argv, char * argc[])

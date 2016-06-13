@@ -24,5 +24,5 @@ git:
 	cp *.txt Git/
 	cp Makefile Git/
 	git --git-dir Git/.git/ add * 
-	git --git-dir Git/.git/ commit -m "Atualizacao Bugada"
+	git --git-dir Git/.git/ commit -m "Atualizacao DesBugada"
 	git --git-dir Git/.git/ push
